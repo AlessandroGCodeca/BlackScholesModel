@@ -1,104 +1,160 @@
+#!/usr/bin/env python3
+import argparse
 import numpy as np
-import pandas as pd
 from py_vollib.black_scholes import black_scholes as bs
 from py_vollib.black_scholes.greeks.analytical import delta, gamma, theta, vega, rho
 from scipy.stats import norm
+from typing import Tuple, Dict, Optional
 
-# Define variables
-S = 34.03
-r = 0.0412
-K = 40.00
-T = 30/365
-sigma = 0.35 #assumed volatility
+class BlackScholesModel:
+    """
+    A class to calculate Black-Scholes option prices and Greeks using both
+    manual implementation and the py_vollib library.
+    """
 
-def blackScholes(r, S, K, T, sigma, type="c"):
-    d1 = (np.log(S/K) + (r + sigma**2/2)*T)/(sigma*np.sqrt(T))
-    d2 = d1 - sigma*np.sqrt(T)
-    try:
-        if type == "c":
-            price = S*norm.cdf(d1, 0, 1) - K*np.exp(-r*T)*norm.cdf(d2, 0, 1)
-        elif type == "p":
-            price = K*np.exp(-r*T)*norm.cdf(-d2, 0, 1) - S*norm.cdf(-d1, 0, 1)
-        return price, bs(type, S, K, T, r, sigma)
-    except Exception as e:
-        print(f"Error in blackScholes: {e}")
-        return None, None
+    def __init__(self, S: float, K: float, T: float, r: float, sigma: float):
+        """
+        Initialize the Black-Scholes Model.
 
-def delta_value(r, S, K, T, sigma, type='c'):
-    d1 = (np.log(S/K) + (r + sigma**2/2)*T)/(sigma*np.sqrt(T))
-    try:
-        if type == "c":
-            delta_val = norm.cdf(d1, 0, 1)
-        elif type == "p":
-            delta_val = -norm.cdf(-d1, 0, 1)
-        return delta_val, delta(type, S, K, T, r, sigma)
-    except Exception as e:
-        print(f"Error in delta_value: {e}")
-        return None, None
+        Args:
+            S (float): Current price of the underlying asset.
+            K (float): Strike price of the option.
+            T (float): Time to expiration in years.
+            r (float): Risk-free interest rate (decimal, e.g., 0.05 for 5%).
+            sigma (float): Volatility of the underlying asset (decimal, e.g., 0.2 for 20%).
+        """
+        if T <= 0 or sigma < 0:
+            raise ValueError("Time to expiration must be positive and volatility must be non-negative.")
+        
+        self.S = S
+        self.K = K
+        self.T = T
+        self.r = r
+        self.sigma = sigma
 
-def gamma_value(r, S, K, T, sigma, type='c'):
-    d1 = (np.log(S/K) + (r + sigma**2/2)*T)/(sigma*np.sqrt(T))
-    try:
-        gamma_val = norm.pdf(d1, 0, 1)/(S*sigma*np.sqrt(T))
-        return gamma_val, gamma(type, S, K, T, r, sigma)
-    except Exception as e:
-        print(f"Error in gamma_value: {e}")
-        return None, None
+    def _calculate_d1_d2(self) -> Tuple[float, float]:
+        """
+        Calculate d1 and d2 parameters for Black-Scholes formula.
 
-def theta_value(r, S, K, T, sigma, type='c'):
-    d1 = (np.log(S/K) + (r + sigma**2/2)*T)/(sigma*np.sqrt(T))
-    d2 = d1 - sigma*np.sqrt(T)
-    try:
-        if type == "c":
-            theta_val = -S*norm.pdf(d1, 0, 1)*sigma/(2*np.sqrt(T)) - r*K*np.exp(-r*T)*norm.cdf(d2, 0, 1)
-        elif type == "p":
-            theta_val = -S*norm.pdf(d1, 0, 1)*sigma/(2*np.sqrt(T)) + r*K*np.exp(-r*T)*norm.cdf(-d2, 0, 1)
-        return theta_val/365, theta(type, S, K, T, r, sigma)
-    except Exception as e:
-        print(f"Error in theta_value: {e}")
-        return None, None
+        Returns:
+            Tuple[float, float]: The calculated d1 and d2 values.
+        """
+        d1 = (np.log(self.S / self.K) + (self.r + self.sigma**2 / 2) * self.T) / (self.sigma * np.sqrt(self.T))
+        d2 = d1 - self.sigma * np.sqrt(self.T)
+        return d1, d2
 
-def vega_value(r, S, K, T, sigma, type='c'):
-    d1 = (np.log(S/K) + (r + sigma**2/2)*T)/(sigma*np.sqrt(T))
-    try:
-        vega_calc = S*norm.pdf(d1, 0, 1)*np.sqrt(T)
-        return vega_calc*0.01, vega(type, S, K, T, r, sigma)
-    except Exception as e:
-        print(f"Error in vega_value: {e}")
-        return None, None
+    def calculate_price(self, option_type: str = 'c') -> Dict[str, Optional[float]]:
+        """
+        Calculate option price.
 
-def rho_value(r, S, K, T, sigma, type='c'):
-    d1 = (np.log(S/K) + (r + sigma**2/2)*T)/(sigma*np.sqrt(T))
-    d2 = d1 - sigma*np.sqrt(T)
-    try:
-        if type == "c":
-            rho_val = K*T*np.exp(-r*T)*norm.cdf(d2, 0, 1)
-        elif type == "p":
-            rho_val = -K*T*np.exp(-r*T)*norm.cdf(-d2, 0, 1)
-        return rho_val*0.01, rho(type, S, K, T, r, sigma)
-    except Exception as e:
-        print(f"Error in rho_value: {e}")
-        return None, None
+        Args:
+            option_type (str): 'c' for Call, 'p' for Put.
+
+        Returns:
+            Dict[str, Optional[float]]: Prices from 'Manual' calculation and 'Py_Vollib'.
+        """
+        d1, d2 = self._calculate_d1_d2()
+        try:
+            if option_type == 'c':
+                price = self.S * norm.cdf(d1, 0, 1) - self.K * np.exp(-self.r * self.T) * norm.cdf(d2, 0, 1)
+            elif option_type == 'p':
+                price = self.K * np.exp(-self.r * self.T) * norm.cdf(-d2, 0, 1) - self.S * norm.cdf(-d1, 0, 1)
+            else:
+                raise ValueError("Option type must be 'c' or 'p'")
+            
+            lib_price = bs(option_type, self.S, self.K, self.T, self.r, self.sigma)
+            return {"Manual": price, "Py_Vollib": lib_price}
+        except Exception as e:
+            print(f"Error calculating price: {e}")
+            return {"Manual": None, "Py_Vollib": None}
+
+    def calculate_greeks(self, option_type: str = 'c') -> Dict[str, Dict[str, Optional[float]]]:
+        """
+        Calculate all Greeks (Delta, Gamma, Theta, Vega, Rho).
+
+        Args:
+            option_type (str): 'c' for Call, 'p' for Put.
+
+        Returns:
+            Dict[str, Dict[str, Optional[float]]]: Dictionary containing Greeks from both methods.
+        """
+        d1, d2 = self._calculate_d1_d2()
+        greeks = {}
+
+        # Delta
+        try:
+            if option_type == 'c':
+                delta_val = norm.cdf(d1, 0, 1)
+            else:
+                delta_val = -norm.cdf(-d1, 0, 1)
+            greeks['Delta'] = {"Manual": delta_val, "Py_Vollib": delta(option_type, self.S, self.K, self.T, self.r, self.sigma)}
+        except Exception: 
+            greeks['Delta'] = {"Manual": None, "Py_Vollib": None}
+
+        # Gamma
+        try:
+            gamma_val = norm.pdf(d1, 0, 1) / (self.S * self.sigma * np.sqrt(self.T))
+            greeks['Gamma'] = {"Manual": gamma_val, "Py_Vollib": gamma(option_type, self.S, self.K, self.T, self.r, self.sigma)}
+        except Exception:
+            greeks['Gamma'] = {"Manual": None, "Py_Vollib": None}
+
+        # Theta
+        try:
+            if option_type == 'c':
+                theta_val = -self.S * norm.pdf(d1, 0, 1) * self.sigma / (2 * np.sqrt(self.T)) - self.r * self.K * np.exp(-self.r * self.T) * norm.cdf(d2, 0, 1)
+            else:
+                theta_val = -self.S * norm.pdf(d1, 0, 1) * self.sigma / (2 * np.sqrt(self.T)) + self.r * self.K * np.exp(-self.r * self.T) * norm.cdf(-d2, 0, 1)
+            greeks['Theta'] = {"Manual": theta_val / 365, "Py_Vollib": theta(option_type, self.S, self.K, self.T, self.r, self.sigma)}
+        except Exception:
+            greeks['Theta'] = {"Manual": None, "Py_Vollib": None}
+
+        # Vega
+        try:
+            vega_val = self.S * norm.pdf(d1, 0, 1) * np.sqrt(self.T)
+            greeks['Vega'] = {"Manual": vega_val * 0.01, "Py_Vollib": vega(option_type, self.S, self.K, self.T, self.r, self.sigma)}
+        except Exception:
+            greeks['Vega'] = {"Manual": None, "Py_Vollib": None}
+
+        # Rho
+        try:
+            if option_type == 'c':
+                rho_val = self.K * self.T * np.exp(-self.r * self.T) * norm.cdf(d2, 0, 1)
+            else:
+                rho_val = -self.K * self.T * np.exp(-self.r * self.T) * norm.cdf(-d2, 0, 1)
+            greeks['Rho'] = {"Manual": rho_val * 0.01, "Py_Vollib": rho(option_type, self.S, self.K, self.T, self.r, self.sigma)}
+        except Exception:
+            greeks['Rho'] = {"Manual": None, "Py_Vollib": None}
+
+        return greeks
+
+def main():
+    parser = argparse.ArgumentParser(description="Calculate Black-Scholes Option Price and Greeks.")
+    parser.add_argument("--price", type=float, default=34.03, help="Underlying asset price (S). Default: 34.03")
+    parser.add_argument("--strike", type=float, default=40.00, help="Strike price (K). Default: 40.00")
+    parser.add_argument("--rate", type=float, default=0.0412, help="Risk-free interest rate (r). Default: 0.0412")
+    parser.add_argument("--time", type=float, default=30, help="Time to expiration in days. Default: 30")
+    parser.add_argument("--volatility", type=float, default=0.35, help="Volatility (sigma). Default: 0.35")
+    parser.add_argument("--type", type=str, choices=['c', 'p'], default='c', help="Option type: 'c' for Call, 'p' for Put. Default: 'c'")
+
+    args = parser.parse_args()
+
+    # Convert time from days to years
+    T_years = args.time / 365.0
+
+    print("--- Black Scholes Model ---")
+    print(f"Parameters: S={args.price}, K={args.strike}, r={args.rate}, T={T_years:.4f} ({args.time} days), sigma={args.volatility}")
+    print(f"Option Type: {'Call' if args.type == 'c' else 'Put'}\n")
+
+    model = BlackScholesModel(args.price, args.strike, T_years, args.rate, args.volatility)
+    
+    # Calculate Price
+    prices = model.calculate_price(args.type)
+    print(f"Option Price:\n  Manual:    {prices['Manual']}\n  Py_Vollib: {prices['Py_Vollib']}\n")
+
+    # Calculate Greeks
+    greeks = model.calculate_greeks(args.type)
+    for name, values in greeks.items():
+        print(f"{name}:\n  Manual:    {values['Manual']}\n  Py_Vollib: {values['Py_Vollib']}\n")
 
 if __name__ == "__main__":
-    print("--- Black Scholes Model ---")
-    print(f"Parameters: S={S}, K={K}, r={r}, T={T:.4f}, sigma={sigma}\n")
-    
-    option_type = 'c'
-    print(f"Calculating for Option Type: {option_type}\n")
-
-    price_manual, price_lib = blackScholes(r, S, K, T, sigma, option_type)
-    print(f"Option Price:\n  Manual:    {price_manual}\n  Py_Vollib: {price_lib}\n")
-
-    # Greeks
-    greeks = {
-        "Delta": delta_value,
-        "Gamma": gamma_value,
-        "Theta": theta_value,
-        "Vega": vega_value,
-        "Rho": rho_value
-    }
-
-    for name, func in greeks.items():
-        val_manual, val_lib = func(r, S, K, T, sigma, option_type)
-        print(f"{name}:\n  Manual:    {val_manual}\n  Py_Vollib: {val_lib}\n")
+    main()

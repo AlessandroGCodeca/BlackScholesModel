@@ -7,6 +7,7 @@ This project implements the **Black-Scholes Model** in Python to calculate fair 
 - **Option Pricing:** Calculates the theoretical price of Call and Put options.
 - **Greeks Calculation:** Computes Delta, Gamma, Theta, Vega, and Rho.
 - **Dual Implementation:** Compares manual calculations with `py_vollib` for verification.
+- **Flexible Inputs:** Support for command-line arguments to test different scenarios.
 
 ## Prerequisites
 
@@ -17,8 +18,8 @@ This project implements the **Black-Scholes Model** in Python to calculate fair 
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
-   cd black-scholes-model
+   git clone https://github.com/AlessandroGCodeca/BlackScholesModel.git
+   cd BlackScholesModel
    ```
 
 2. Create and activate a virtual environment (recommended):
@@ -34,19 +35,23 @@ This project implements the **Black-Scholes Model** in Python to calculate fair 
 
 ## Usage
 
-Run the main script to see the calculations for a sample Call Option:
-
+Run the script with default values:
 ```bash
 python black_scholes.py
 ```
 
-## Parameters
+### Custom Parameters
 
-The script currently uses hardcoded parameters for demonstration:
-- **Stock Price (S):** 34.03
-- **Strike Price (K):** 40.00
-- **Risk-free Rate (r):** 0.0412
-- **Time to Maturity (T):** 30 days
-- **Volatility (sigma):** 0.35
+You can pass custom parameters via the command line:
 
-You can modify these variables in `black_scholes.py` to test different scenarios.
+```bash
+python black_scholes.py --price 100 --strike 95 --time 30 --volatility 0.2 --type c
+```
+
+**Arguments:**
+- `--price`: Current price of the underlying asset (Default: 34.03)
+- `--strike`: Strike price of the option (Default: 40.00)
+- `--rate`: Risk-free interest rate (decimal) (Default: 0.0412)
+- `--time`: Time to expiration in days (Default: 30)
+- `--volatility`: Volatility of the underlying asset (decimal) (Default: 0.35)
+- `--type`: Option type, 'c' for Call or 'p' for Put (Default: 'c')
